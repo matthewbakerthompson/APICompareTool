@@ -1,0 +1,163 @@
+<!--
+    File: upload.html
+    Author: Matthew Thompson
+    Created on: 11/21/2023
+    Last updated: 12/9/2023
+
+    Description:
+        This HTML file is the main interface for the API Compare Tool. It provides a user-friendly
+        form for uploading Excel files for data validation. The page includes instructions, a file
+        upload section, and displays the status of the upload process.
+
+    Notes:
+        - The form uses AJAX for asynchronous file uploading and updates the user on the progress.
+        - It includes client-side validation to ensure only Excel files (.xlsx) are uploaded.
+        - The design is responsive, ensuring usability across various devices and screen sizes.
+
+    Contact:
+        Email: matthewbakerthompson@gmail.com
+
+    Additional Information:
+        - This file is part of the DjangoAPICompare project, which aims to provide an efficient
+          and automated way to compare Excel data with API responses.
+        - The interface is designed to be intuitive, allowing users with minimal technical
+          expertise to easily use the tool.
+-->
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Compare</title>
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'style.css' %}" />
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+</head>
+<body>
+    <div class="navbar">
+        <!-- Uncomment if adding a working URL for sas_compare view -->
+        <!-- <a href="{% url 'apicompare:sas_compare' %}">SAS Compare</a> -->
+    </div>
+
+    <div class="header">
+        <img src="{% static 'images/logo.png' %}" alt="Logo" class="logo-image">
+        <h1 class="title">API Compare Tool</h1>
+    </div>
+
+    <div class="container">
+        <!-- Instructions -->
+        <div class="instructions">
+            <p>
+                <strong>
+                    Follow these steps to use the <span class="tooltip">
+                        API Compare Tool:
+                        <span class="tooltiptext">This tool compares expected results from an Excel file with data from an API and generates a report highlighting any discrepancies.</span>
+                    </span>
+                </strong>
+            </p>
+            <ol class="left-align-bold">
+                <li><a href="{% static 'app/content/template.xlsx' %}" download><b>Download</b></a> the Excel template.</li>
+                <li>Fill in your data according to the template format.</li>
+                <li>Click 'Upload' to send the completed file for processing.</li>
+                <li>Click 'View Report' to retrieve the html compare of your expected results vs. the API.</li>
+            </ol>
+        </div>
+
+        <!-- Spacer between the list and the form -->
+        <div class="form-spacer"></div>
+ 
+        <!-- File Upload Form -->
+        <form id="uploadForm" enctype="multipart/form-data" method="post" class="col s12">
+            {% csrf_token %}
+            <div class="file-field input-field">
+                <div class="btn">
+                    <span>File</span>
+                    <input type="file" name="file" id="fileInput" accept=".xlsx" required>
+                </div>
+                <div class="file-path-wrapper">
+                    <input class="file-path validate" type="text" placeholder="Upload your file">
+                </div>
+            </div>
+            <button type="submit" class="waves-effect waves-light btn-large">Upload</button>
+        </form>
+
+        <div class="error-message" style="color: red; display: none;" id="errorMessage">
+            Please upload only .xlsx files.
+        </div>
+
+        <!-- Progress Bar and Status -->
+        <div class="progress">
+            <div class="progress-bar" id="progressBar" style="width: 0;"></div>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="report-link" id="reportLink"></div>
+    </div>
+
+
+    <!-- JavaScript for AJAX File Upload -->
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Check if the file is an .xlsx file
+            if (file && file.name.endsWith('.xlsx')) {
+                errorMessage.style.display = 'none'; // Hide error message
+
+                const formData = new FormData(this);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '{% url "apicompare:upload" %}', true);
+
+                // Get CSRF token from the hidden input field
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                xhr.setRequestHeader('X-CSRFToken', csrftoken); // Set CSRF token in header
+
+                // Update progress bar during the upload
+                xhr.upload.onprogress = function (e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        document.getElementById('progressBar').style.width = percentComplete + '%';
+                        document.getElementById('progressBar').innerText = Math.round(percentComplete) + '%';
+                    }
+                };
+
+                // Handle the response from the server
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        document.getElementById('status').innerText = response.message;
+                        if (response.report_url) {
+                            const reportLink = document.createElement('a');
+                            reportLink.href = response.report_url;
+                            reportLink.innerText = 'View Report';
+                            reportLink.target = '_blank';
+                            document.getElementById('reportLink').appendChild(reportLink);
+                        }
+                    } else {
+                        document.getElementById('status').innerText = 'Upload failed: ' + xhr.statusText;
+                    }
+                };
+
+                // Handle any errors that occur during the upload
+                xhr.onerror = function () {
+                    document.getElementById('status').innerText = 'Upload failed: An error occurred.';
+                };
+
+                xhr.send(formData);
+            } else {
+                errorMessage.style.display = 'block'; // Show error message
+            }
+        });
+    </script>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+</body>
+</html>

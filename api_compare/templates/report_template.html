@@ -1,0 +1,241 @@
+<!--
+    File: report_template.html
+    Author: Matthew Thompson
+    Created on: 11/21/2023
+    Last updated: 12/9/2023
+
+    Description:
+        This HTML file serves as a template for generating reports in the API Compare Tool.
+        It structures the presentation of complete matches and partial mismatches from the
+        data validation process, along with a dynamic chart for visual representation.
+
+    Notes:
+        - This template is rendered using Jinja2 templating engine within a Django framework.
+        - It includes a chart section for visualizing data comparison results.
+        - The layout is responsive to ensure proper display on various devices.
+
+    Contact:
+        Email: matthewbakerthompson@gmail.com
+
+    Additional Information:
+        - This template is part of the DjangoAPICompare project.
+        - It is designed to be both user-friendly and informative, providing clear insights into data validation results.
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Compare Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background: #f7f7f7;
+            color: #333;
+            font-size: 16px;
+            margin: 0; /* Remove default margin from the body */
+        }
+
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            padding: 0; /* Remove padding from container */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 32px;
+            background-color: #3A858D;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            margin: 0; /* Remove margin to eliminate gaps */
+            border-bottom: 2px solid #0C1618; /* Add border to the bottom */
+        }
+
+        .timestamp-container {
+            background-color: #F0EFF4;
+            padding: .2px;
+            text-align: right;
+            margin: 0; /* Remove margin to eliminate gaps */
+        }
+
+
+        h2 {
+            padding-left: 20px; /* Add padding to the left of the headings */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            table-layout: fixed; /* Keep this to ensure table layout is fixed */
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            word-wrap: break-word;
+        }
+
+        th {
+            background-color: #000000;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #F0EFF4;
+        }
+
+        tr:hover {
+            background-color: #eaeaea;
+        }
+
+        /* Set the width of the first column (User ID) */
+        th:first-child, td:first-child {
+            width: 10%; /* Adjust as needed */
+        }
+
+        /* Set the width of the second column (Mismatches) */
+        th:nth-child(2), td:nth-child(2) {
+            width: 90%; /* Adjust as needed */
+        }
+
+        .timestamp {
+            text-align: right;
+            font-style: italic;
+            margin-top: 10px;
+        }
+
+        .chart-container {
+            width: 100%;
+            max-width: 400px;
+            height: 400px;
+            margin: 20px auto;
+        }
+
+        @media print {
+            .chart-container {
+                display: none; /* Hide chart in print */
+            }
+            /* Add other print styles as needed */
+        }
+
+        @media screen and (max-width: 768px) {
+            .chart-container {
+                width: 100%; /* Full width on smaller screens */
+                height: auto; /* Adjust height for smaller screens */
+            }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #3A858D;
+            color: white;
+            font-size: 14px;
+        }
+        /* Add footer styles here */
+
+    </style>
+</head>
+<body>
+    <div class="container my-5">
+        <h1>API Compare</h1>
+        <div class="timestamp-container">
+            <p class="timestamp" id="timestampParagraph">Report generated on: </p>
+        </div>
+
+        <!-- Chart container -->
+        <div class="chart-container">
+            <canvas id="passFailChart"></canvas>
+        </div>
+
+
+        <!-- Complete Matches -->
+        <h2>Complete Matches:</h2>
+        <ul>
+            {% for user_id in complete_matches %}
+            <li>User ID: {{ user_id }}</li>
+            {% else %}
+            <li>No complete matches found.</li>
+            {% endfor %}
+        </ul>
+
+        <!-- Partial Mismatches -->
+        <h2>Partial Mismatches:</h2>
+        <table>
+            <tr>
+                <th>User ID</th>
+                <th>Mismatches</th>
+            </tr>
+            {% for user_id, mismatches in data.partial_mismatches.items() %}
+            <tr>
+                <td>{{ user_id }}</td>
+                <td>
+                    <ul>
+                        {% for mismatch in mismatches %}
+                        <li>{{ mismatch }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="2">No partial mismatches found.</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+
+    </div>
+
+    <!-- JavaScript to generate the chart -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        var dataForTime = {{ data|safe }};
+        var dataForChart = {{ data_for_js|safe }};
+        var ctx = document.getElementById('passFailChart').getContext('2d');
+        var passFailChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pass %', 'Fail %'],
+                datasets: [{
+                    label: 'Pass vs Fail',
+                    data: [dataForChart.pass_percentage, dataForChart.fail_percentage],
+                    backgroundColor: [
+                        'rgba(194, 231, 217, 0.2)',
+                        'rgba(155, 29, 32, 0.5)'
+
+                    ],
+                    borderColor: [
+                        'rgba(26, 40, 31, 1)',
+                        'rgba(150, 2, 0, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // New script to set the timestamp
+        document.addEventListener('DOMContentLoaded', (event) => {
+            var timestampText = 'Report generated on: ' + dataForTime.timestamp;
+            document.getElementById('timestampParagraph').textContent = timestampText;
+        });
+    </script>
+</body>
+</html>
